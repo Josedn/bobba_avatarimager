@@ -1,0 +1,408 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Battleball</title>
+  <style type="text/css">
+  body
+  {
+    margin: 0 auto;
+    background-color: #00aaaa;
+    color: #dddddd;
+  }
+  canvas
+  {
+    position: absolute;
+    width: 100%;
+    position: absolute;
+    width: 100%;
+    height: 100%;
+  }
+  </style>
+  <script>
+  AvatarImager.LOCAL_RESOURCES_URL = "./resource/";
+
+  function AvatarSprite(lib, name, fileName, isFlip, width, height, offset) {
+    this.lib = lib;
+    this.name = name;
+    this.fileName = fileName;
+    this.isFlip = isFlip;
+    this.offset = offset;
+    this.ready = false;
+  };
+
+  AvatarSprite.prototype.downloadAsync = function() {
+    var img = new Image();
+    var d = new Promise(function (resolve, reject) {
+        img.onload = function () {
+            this.resource = img;
+            console.log("downloaded " + this.name);
+            resolve(img);
+        }.bind(this);
+
+        img.onerror = function () {
+            reject('Could not load image: ' + src);
+        };
+    }.bind(this));
+
+    img.src = this.fileName;
+    return d;
+  };
+
+  function AvatarImage(figure, direction, headDirection, action, gesture, frame, isHeadOnly, scale) {
+    this.isLarge = false;
+    this.isSmall = false;
+    this.rectWidth = 64;
+    this.rectHeight = 110;
+    switch (scale) {
+      case "l":
+      this.isLarge = true;
+      this.rectWidth = 128;
+      this.rectHeight = 220;
+      break;
+      case "s":
+      this.isSmall = true;
+      this.rectWidth = 32;
+      this.rectHeight = 55;
+      break;
+      case "n":
+      default:
+      break;
+    }
+    this.isHeadOnly = isHeadOnly === true;
+    this.figure = [];
+    figure.split('.').forEach(part => {
+      var data = part.split('-');
+      var figurePart = {"type" : data[0], "id" : data[1], "colors" : [ data[2] ]};
+      if (data[3] != null) {
+        figurePart.colors.push(data[3]);
+      }
+      this.figure.push(figurePart);
+    });
+
+    this.frame = Array.isArray(frame) ? frame : [ frame ];
+    this.drawAction = {"body" : "std", "wlk" : false, "sit" : false, "gesture" : false, "eye" : false, "speak" : false, "itemRight": false, "handRight" : false, "handLeft": false, "swm" : false};
+    this.handItem = false;
+    this.drawOrder = "std";
+    this.ok = false;
+    this.gesture = gesture;
+    this.direction = this.isValidDirection(direction) ? direction : 0;
+    this.headDirection = this.isValidDirection(headDirection) ? headDirection : 0;
+
+    switch(this.gesture) {
+      case "spk":
+      this.drawAction['speak'] = this.gesture;
+      break;
+      case "eyb":
+      this.drawAction['eye'] = this.gesture;
+      break;
+      case "":
+      this.drawAction['gesture'] = "std";
+      break;
+      default:
+      this.drawAction['gesture'] = this.gesture;
+      break;
+    }
+
+    this.action = Array.isArray(action) ? action : [ action ];
+    this.action.forEach(value => {
+      var actionParams = value.split('=');
+      switch (actionParams[0]) {
+        case "wlk":
+        case "sit":
+        this.drawAction[actionParams[0]] = actionParams[0];
+        break;
+
+        case "lay":
+        this.drawAction['body']	= actionParams[0];
+        this.drawAction['eye'] = actionParams[0];
+
+        var temp = this.rectWidth;
+        this.rectWidth = this.rectHeight;
+        this.rectHeight = temp;
+
+        switch (this.gesture) {
+          case "spk":
+          this.drawAction['speak'] = "lsp";
+          this.frame['lsp'] = this.frame[this.gesture];
+          break;
+
+          case "eyb":
+          this.drawAction['eye'] = "ley";
+          break;
+
+          case "std":
+          this.drawAction['gesture'] = actionParams[0];
+          break;
+
+          default:
+          this.drawAction['gesture'] = "l" + this.gesture.substr(0, 2);
+          break;
+        }
+        break;
+
+        case "wav":
+        this.drawAction['handLeft'] = actionParams[0];
+        break;
+
+        case "crr":
+        case "drk":
+        this.drawAction['handRight'] = actionParams[0];
+        this.drawAction['itemRight'] = actionParams[0];
+        this.handItem = actionParams[1];
+        break;
+
+        case "swm":
+        this.drawAction[actionParams[0]] = actionParams[0];
+        if (this.gesture == "spk") {
+          this.drawAction['speak'] = "sws";
+        }
+        break;
+
+        case "":
+        this.drawAction['body'] = "std";
+        break;
+
+        default:
+        this.drawAction['body'] = actionParams[0];
+        break;
+      }
+    });
+
+    if (this.drawAction['sit'] == "sit") {
+      if (this.direction >= 2 && this.direction <= 4) {
+        this.drawOrder = "sit";
+        if (this.drawAction['handRight'] == "drk" && this.direction >= 2 && this.direction <= 3) {
+          this.drawOrder += ".rh-up";
+        } else if (this.drawAction['handLeft'] && this.direction == 4) {
+          this.drawOrder += ".lh-up";
+        }
+      }
+    } else if (this.drawAction['body'] == "lay") {
+      this.drawOrder = "lay";
+    } else if (this.drawAction['handRight'] == "drk" && this.direction >= 0 && this.direction <= 3) {
+      this.drawOrder = "rh-up";
+    } else if (this.drawAction['handLeft'] && this.direction >= 4 && this.direction <= 6) {
+      this.drawOrder = "lh-up";
+    }
+
+    this.ok = true;
+  };
+
+  AvatarImage.prototype.isValidDirection = function(direction) {
+    return (Number.isInteger(direction) && direction >= 0 && direction <= 7);
+  };
+
+  function AvatarImager() {
+    this.ready = false;
+    this.initialize();
+  };
+
+  AvatarImager.prototype.initialize = function() {
+    var p = this.loadFiles();
+    Promise.all(p).then(function (loaded) {
+      this.ready = true;
+      console.log("AvatarImager ready to draw");
+    }.bind(this));
+  };
+
+  AvatarImager.prototype.getPartUniqueName = function(type, partId) {
+    var uniqueName = this.figuremap[type][partId];
+    if (uniqueName == null && type == "hrb") {
+      uniqueName = this.figuremap["hr"][partId];
+    }
+    return uniqueName;
+  };
+
+  AvatarImager.prototype.getFrameNumber = function(type, action, frame) {
+    return 0;
+  };
+
+  AvatarImager.prototype.getActivePartSet = function(partSet) {
+    //var ret = [];
+    var activeParts = this.partsets['activePartSet'][partSet]['activePart'];
+    if (activeParts == null || activeParts.length == 0) {
+      return false;
+    }
+    return activeParts;
+    //var partSetData = this.partsets['partSet'];
+    //activeParts.forEach(type => {
+      //ret.push(type);
+    //});
+    //return ret;
+  };
+
+  AvatarImager.prototype.buildResourceName = function(action, type, isSmall, partId, direction, frame, uniqueName) {
+    var resourceName = AvatarImager.LOCAL_RESOURCES_URL + uniqueName + "/" + uniqueName;
+    resourceName += "_";
+
+    resourceName += isSmall ? "sh" : "h";
+    resourceName += "_";
+    resourceName += action;
+    resourceName += "_";
+    resourceName += type;
+    resourceName += "_";
+    resourceName += partId;
+    resourceName += "_";
+    resourceName += direction;
+    resourceName += "_";
+    resourceName += frame;
+
+    resourceName += ".png";
+    return resourceName;
+  };
+
+  AvatarImager.prototype.getPartResource = function(uniqueName, action, type, isSmall, partId, direction) {
+    var frame = this.getFrameNumber(type, action, null);
+    var isFlip = false;
+    var resDirection = direction;
+    var resourceName = this.buildResourceName(action, type, isSmall, partId, resDirection, frame, uniqueName);
+
+    //file_exists? ======= true
+
+    var resource = new  AvatarSprite(uniqueName, resourceName, resourceName, false, 50, 50, 0);
+    return resource;
+  };
+
+  AvatarImager.prototype.getDrawOrder = function(action, direction) {
+    var drawOrder = this.draworder[action][direction];
+    if (drawOrder == null || drawOrder.length == 0) {
+      return false;
+    }
+    return drawOrder;
+  };
+
+  AvatarImager.prototype.getColorByPaletteId = function(paletteId, colorId) {
+    var hexColor = this.figuredata['palette'][paletteId][colorId]['color'];
+    return (hexColor != null ? hexColor : "ffffff");
+  };
+
+  AvatarImager.prototype.getPartColor = function(figure) {
+    var parts = {};
+    var partSet = this.figuredata['settype'][figure.type];
+    if (partSet['set'][figure.id]['part'] != null) {
+      partSet['set'][figure.id]['part'].forEach(part => {
+        parts[part.type] = {"index" : part.index, "id" : part.id, "colorable" : part.colorable, "color": this.getColorByPaletteId(partSet.paletteid, figure.colors[part.colorindex - 1]) };
+      });
+    }
+    return parts;
+  };
+
+  AvatarImager.prototype.generate = function(ctx, avatarImage) {
+    if (!avatarImage.ok) {
+      return null;
+    }
+    var tempCanvas = document.createElement('canvas');
+    var tempCtx = tempCanvas.getContext('2d');
+    tempCanvas.width = avatarImage.rectWidth;
+    tempCanvas.height = avatarImage.rectHeight;
+    tempCtx.fillStyle = "#ffffff";
+    tempCtx.fillRect(0, 0, 100, 100);
+
+    var activeParts = {};
+    activeParts.rect = this.getActivePartSet(this.isHeadOnly ? "head" : "figure");
+    activeParts.head = this.getActivePartSet("head");
+    activeParts.eye = this.getActivePartSet("eye");
+    activeParts.gesture = this.getActivePartSet("gesture");
+    activeParts.speak = this.getActivePartSet("speak");
+    activeParts.walk	= this.getActivePartSet("walk");
+    activeParts.sit = this.getActivePartSet("sit");
+    activeParts.itemRight = this.getActivePartSet("itemRight");
+    activeParts.handRight = this.getActivePartSet("handRight");
+    activeParts.handLeft = this.getActivePartSet("handLeft");
+    activeParts.swim = this.getActivePartSet("swim");
+
+    var drawParts = this.getDrawOrder(avatarImage.drawOrder, avatarImage.direction);
+    if (drawParts === false) {
+      drawParts = this.getDrawOrder("std", avatarImage.direction);
+    }
+
+    var setParts = [];
+    avatarImage.figure.forEach(parSet => {
+      setParts = Object.assign(setParts, this.getPartColor(parSet));
+    });
+
+    if (avatarImage.handItem !== false) {
+      setParts["ri"] = {"index" : 0, "id" : avatarImage.handItem};
+    }
+
+    var drawCount = 0;
+
+    var chunks = [];
+    var chunksPromises = [];
+
+    drawParts.forEach(type => {
+      var drawableParts = setParts[type];
+      if (drawableParts != null) {
+        var uniqueName = this.getPartUniqueName(type, drawableParts["id"]);
+        if (uniqueName != null) {
+          console.log(type + " -> " + drawableParts["id"] + " -> " + uniqueName);
+
+          var drawPartChunk = this.getPartResource(uniqueName, avatarImage.action, type, avatarImage.isSmall, drawableParts["id"], avatarImage.direction);
+          chunks.push(drawPartChunk);
+          chunksPromises.push(drawPartChunk.downloadAsync());
+          drawCount++;
+        }
+      }
+    });
+
+    Promise.all(chunksPromises).then(function () {
+      this.drawChunks(tempCtx, chunks);
+      ctx.drawImage(tempCanvas, 100, 100);
+    }.bind(this));
+
+    return tempCanvas;
+  };
+
+  AvatarImager.prototype.drawChunks = function(ctx, chunks) {
+    console.log("drawing...");
+
+    var off= 0;
+    for (chunk of chunks) {
+      console.log(chunk);
+      ctx.drawImage(chunk.resource, 0, 0);
+      off += 20;
+    }
+
+  };
+
+  AvatarImager.prototype.downloadJsonAsync = function(key, url) {
+    return new Promise(function (resolve, reject) {
+      var r = new XMLHttpRequest();
+      r.open("GET", url, true);
+      r.onreadystatechange = function () {
+        if (r.readyState != 4 || r.status != 200) {
+          if (r.status == 404) {
+            reject("Error downloading " + url);
+          }
+          return;
+        }
+        this[key] = JSON.parse(r.responseText);
+        resolve();
+      }.bind(this);
+      r.send();
+    }.bind(this));
+  };
+
+  AvatarImager.prototype.loadFiles = function() {
+    return [
+      this.downloadJsonAsync("figuremap", "resource/map.json"),
+      this.downloadJsonAsync("figuredata", "resource/figuredata.json"),
+      this.downloadJsonAsync("partsets", "resource/partsets.json"),
+      this.downloadJsonAsync("draworder", "resource/draworder.json")
+    ];
+  };
+
+  var Game = {};
+  window.onload = function () {
+    Game.avatarImager = new AvatarImager();
+
+  };
+
+  </script>
+
+</head>
+<body>
+  <canvas id="game"></canvas>
+</body>
+</html>

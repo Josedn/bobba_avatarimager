@@ -1,0 +1,92 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Battleball</title>
+  <style type="text/css">
+  body
+  {
+    margin: 0 auto;
+    background-color: #00aaaa;
+    color: #dddddd;
+  }
+  canvas
+  {
+    position: absolute;
+    width: 100%;
+    position: absolute;
+    width: 100%;
+    height: 100%;
+  }
+  </style>
+  <script>
+  //AvatarImager.LOCAL_RESOURCES_URL = "./resource/";
+  function AvatarImage(figure, direction, headDirection, action, gesture, frame, isHeadOnly) {
+    this.rectWidth = 64;
+    this.rectHeight = 110;
+    this.figure = [];
+    for (part of figure.split('.')) {
+      const data = part.split('-');
+      let figurePart = {"type" : data[0], "id" : data[1], "colors" : [ data[2] ]};
+      if (data[3] != null) {
+        figurePart.colors.push(data[3]);
+      }
+      this.figure.push(figurePart);
+    }
+    this.drawOrder = "std";
+    this.gesture = gesture;
+    this.direction = this.isValidDirection(direction) ? direction : 0;
+    this.headDirection = this.isValidDirection(headDirection) ? headDirection : 0;
+  };
+
+  AvatarImage.prototype.generate = function() {
+
+  };
+
+  AvatarImage.prototype.isValidDirection = function(direction) {
+    return (Number.isInteger(direction) && direction >= 0 && direction <= 7);
+  };
+
+  function AvatarManager() {
+
+  };
+
+  AvatarImager.prototype.downloadJsonAsync = function(key, url) {
+    return new Promise(function (resolve, reject) {
+      var r = new XMLHttpRequest();
+      r.open("GET", url, true);
+      r.onreadystatechange = function () {
+        if (r.readyState != 4 || r.status != 200) {
+          if (r.status == 404) {
+            reject("Error downloading " + url);
+          }
+          return;
+        }
+        this[key] = JSON.parse(r.responseText);
+        resolve();
+      }.bind(this);
+      r.send();
+    }.bind(this));
+  };
+
+  AvatarImager.prototype.loadFiles = function() {
+    return [
+      this.downloadJsonAsync("figuremap", "resource/map.json"),
+      this.downloadJsonAsync("figuredata", "resource/figuredata.json"),
+      this.downloadJsonAsync("partsets", "resource/partsets.json"),
+      this.downloadJsonAsync("draworder", "resource/draworder.json")
+    ];
+  };
+
+  var Game = {};
+  window.onload = function () {
+    Game.avatar = new AvatarImage("hd-190-10.lg-3023-1408.ch-215-91.hr-893-45", 3, 3, "std", "std", 0, false);
+  };
+
+  </script>
+
+</head>
+<body>
+  <canvas id="game"></canvas>
+</body>
+</html>
