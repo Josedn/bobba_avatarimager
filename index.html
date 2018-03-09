@@ -195,14 +195,16 @@
 
   function AvatarImager() {
     this.ready = false;
-    this.initialize();
+    this.offsets = {};
   };
 
-  AvatarImager.prototype.initialize = function() {
+  AvatarImager.prototype.initialize = function(onReady) {
     var p = this.loadFiles();
     Promise.all(p).then(function (loaded) {
       this.ready = true;
-      console.log("AvatarImager ready to draw");
+      if (onReady != null) {
+        onReady();
+      }
     }.bind(this));
   };
 
@@ -288,7 +290,7 @@
     return parts;
   };
 
-  AvatarImager.prototype.generate = function(ctx, avatarImage) {
+  AvatarImager.prototype.generate = function(avatarImage, canvasCallback) {
     if (!avatarImage.ok) {
       return null;
     }
@@ -348,10 +350,7 @@
 
     Promise.all(chunksPromises).then(function () {
       this.drawChunks(tempCtx, chunks);
-      ctx.drawImage(tempCanvas, 100, 100);
     }.bind(this));
-
-    return tempCanvas;
   };
 
   AvatarImager.prototype.drawChunks = function(ctx, chunks) {
@@ -395,7 +394,22 @@
 
   var Game = {};
   window.onload = function () {
+    Game.avatar = new AvatarImage("hd-190-10.lg-3023-1408.ch-215-91.hr-893-45", 3, 3, "std", "std", 0, false, "n");
     Game.avatarImager = new AvatarImager();
+
+    const canvas = document.querySelector('canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+
+    Game.avatarImager.initialize(function() {
+      console.log("Ready to draw!");
+
+      Game.avatarImager.generate(Game.avatar);
+    });
+
+    //ctx.drawImage(image, 100, 100);
 
   };
 
