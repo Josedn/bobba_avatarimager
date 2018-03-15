@@ -22,12 +22,10 @@
   <script>
   AvatarImager.LOCAL_RESOURCES_URL = "./resource/";
 
-  function AvatarSprite(lib, name, fileName, isFlip, width, height, offset) {
+  function AvatarSprite(lib, resourceName, isFlip) {
     this.lib = lib;
-    this.name = name;
-    this.fileName = fileName;
+    this.resourceName = resourceName;
     this.isFlip = isFlip;
-    this.offset = offset;
     this.ready = false;
   };
 
@@ -36,7 +34,7 @@
     var d = new Promise(function (resolve, reject) {
         img.onload = function () {
             this.resource = img;
-            console.log("downloaded " + this.name);
+            console.log("downloaded " + this.lib + " -> " + this.resourceName);
             resolve(img);
         }.bind(this);
 
@@ -45,7 +43,7 @@
         };
     }.bind(this));
 
-    img.src = this.fileName;
+    img.src = AvatarImager.LOCAL_RESOURCES_URL + this.lib + "/" + this.lib + "_" + this.resourceName + ".png";
     return d;
   };
 
@@ -235,10 +233,10 @@
   };
 
   AvatarImager.prototype.buildResourceName = function(action, type, isSmall, partId, direction, frame, uniqueName) {
-    var resourceName = AvatarImager.LOCAL_RESOURCES_URL + uniqueName + "/" + uniqueName;
-    resourceName += "_";
+    //var resourceName = uniqueName + "/" + uniqueName;
+    //resourceName += "_";
 
-    resourceName += isSmall ? "sh" : "h";
+    var resourceName = isSmall ? "sh" : "h";
     resourceName += "_";
     resourceName += action;
     resourceName += "_";
@@ -249,8 +247,6 @@
     resourceName += direction;
     resourceName += "_";
     resourceName += frame;
-
-    resourceName += ".png";
     return resourceName;
   };
 
@@ -262,7 +258,7 @@
 
     //file_exists? ======= true
 
-    var resource = new  AvatarSprite(uniqueName, resourceName, resourceName, false, 50, 50, 0);
+    var resource = new AvatarSprite(uniqueName, resourceName, false);
     return resource;
   };
 
@@ -299,7 +295,7 @@
     tempCanvas.width = avatarImage.rectWidth;
     tempCanvas.height = avatarImage.rectHeight;
     tempCtx.fillStyle = "#ffffff";
-    tempCtx.fillRect(0, 0, 100, 100);
+    tempCtx.fillRect(0, 0, avatarImage.rectWidth, avatarImage.rectHeight);
 
     var activeParts = {};
     activeParts.rect = this.getActivePartSet(this.isHeadOnly ? "head" : "figure");
@@ -331,7 +327,7 @@
     var drawCount = 0;
 
     var chunks = [];
-    var chunksPromises = [];
+    var offsetsPromises = [];
 
     drawParts.forEach(type => {
       var drawableParts = setParts[type];
@@ -340,29 +336,47 @@
         if (uniqueName != null) {
           console.log(type + " -> " + drawableParts["id"] + " -> " + uniqueName);
 
+          if (this.offsets[uniqueName] == null) {
+            offsetsPromises.push(this.downloadOffsetAsync(uniqueName));
+          }
+
           var drawPartChunk = this.getPartResource(uniqueName, avatarImage.action, type, avatarImage.isSmall, drawableParts["id"], avatarImage.direction);
           chunks.push(drawPartChunk);
-          chunksPromises.push(drawPartChunk.downloadAsync());
           drawCount++;
         }
       }
     });
 
-    Promise.all(chunksPromises).then(function () {
-      this.drawChunks(tempCtx, chunks);
+    Promise.all(offsetsPromises).then(function() {
+      console.log("offsets ok!");
+
+      var chunksPromises = [];
+
+      for (chunk of chunks) {
+        if (this.offsets[chunk.lib][chunk.resourceName].flipped) {
+          
+        } else {
+
+        }
+        chunksPromises.push(chunk.downloadAsync());
+      }
+
+      Promise.all(chunksPromises).then(function () {
+        console.log("drawing...");
+
+        var off= 0;
+        for (chunk of chunks) {
+          console.log(chunk);
+          var posX = -this.offsets[chunk.lib][chunk.resourceName].x;
+          var posY = (avatarImage.rectHeight / 2) - this.offsets[chunk.lib][chunk.resourceName].y + avatarImage.rectHeight / 2.5;
+          console.log("x: " + posX + " - y: " + posY );
+          tempCtx.drawImage(chunk.resource, posX, posY);
+          off += 20;
+        }
+
+        canvasCallback(tempCanvas);
+      }.bind(this));
     }.bind(this));
-  };
-
-  AvatarImager.prototype.drawChunks = function(ctx, chunks) {
-    console.log("drawing...");
-
-    var off= 0;
-    for (chunk of chunks) {
-      console.log(chunk);
-      ctx.drawImage(chunk.resource, 0, 0);
-      off += 20;
-    }
-
   };
 
   AvatarImager.prototype.downloadJsonAsync = function(key, url) {
@@ -383,18 +397,37 @@
     }.bind(this));
   };
 
+  AvatarImager.prototype.downloadOffsetAsync = function(uniqueName) {
+    this.offsets[uniqueName] = {};
+    return new Promise(function (resolve, reject) {
+      var r = new XMLHttpRequest();
+      r.open("GET", AvatarImager.LOCAL_RESOURCES_URL + uniqueName + "/offset.json", true);
+      r.onreadystatechange = function () {
+        if (r.readyState != 4 || r.status != 200) {
+          if (r.status == 404) {
+            reject("Error downloading " + url);
+          }
+          return;
+        }
+        this.offsets[uniqueName] = JSON.parse(r.responseText);
+        resolve();
+      }.bind(this);
+      r.send();
+    }.bind(this));
+  };
+
   AvatarImager.prototype.loadFiles = function() {
     return [
-      this.downloadJsonAsync("figuremap", "resource/map.json"),
-      this.downloadJsonAsync("figuredata", "resource/figuredata.json"),
-      this.downloadJsonAsync("partsets", "resource/partsets.json"),
-      this.downloadJsonAsync("draworder", "resource/draworder.json")
+      this.downloadJsonAsync("figuremap", AvatarImager.LOCAL_RESOURCES_URL + "map.json"),
+      this.downloadJsonAsync("figuredata", AvatarImager.LOCAL_RESOURCES_URL + "figuredata.json"),
+      this.downloadJsonAsync("partsets", AvatarImager.LOCAL_RESOURCES_URL + "partsets.json"),
+      this.downloadJsonAsync("draworder", AvatarImager.LOCAL_RESOURCES_URL + "draworder.json")
     ];
   };
 
   var Game = {};
   window.onload = function () {
-    Game.avatar = new AvatarImage("hd-190-10.lg-3023-1408.ch-215-91.hr-893-45", 3, 3, "std", "std", 0, false, "n");
+    Game.avatar = new AvatarImage("hd-190-10.lg-3023-1408.ch-215-91.hr-893-45", 2, 2, "std", "std", 0, false, "n");
     Game.avatarImager = new AvatarImager();
 
     const canvas = document.querySelector('canvas');
@@ -406,7 +439,10 @@
     Game.avatarImager.initialize(function() {
       console.log("Ready to draw!");
 
-      Game.avatarImager.generate(Game.avatar);
+      Game.avatarImager.generate(Game.avatar, function(img) {
+        console.log("Drawing done");
+        ctx.drawImage(img, 10, 10);
+      });
     });
 
     //ctx.drawImage(image, 100, 100);
