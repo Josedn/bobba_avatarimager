@@ -211,6 +211,12 @@
     if (uniqueName == null && type == "hrb") {
       uniqueName = this.figuremap["hr"][partId];
     }
+    if (uniqueName == null) {
+      uniqueName = this.figuremap[type][1];
+    }
+    if (uniqueName == null) {
+      uniqueName = this.figuremap[type][0];
+    }
     return uniqueName;
   };
 
@@ -353,12 +359,16 @@
       var chunksPromises = [];
 
       for (chunk of chunks) {
-        if (this.offsets[chunk.lib][chunk.resourceName].flipped) {
-          
+        console.log(chunk);
+        if (this.offsets[chunk.lib] != null && this.offsets[chunk.lib][chunk.resourceName] != null) {
+          if (this.offsets[chunk.lib][chunk.resourceName].flipped) {
+
+          } else {
+            chunksPromises.push(chunk.downloadAsync());
+          }
         } else {
 
         }
-        chunksPromises.push(chunk.downloadAsync());
       }
 
       Promise.all(chunksPromises).then(function () {
@@ -366,12 +376,14 @@
 
         var off= 0;
         for (chunk of chunks) {
-          console.log(chunk);
-          var posX = -this.offsets[chunk.lib][chunk.resourceName].x;
-          var posY = (avatarImage.rectHeight / 2) - this.offsets[chunk.lib][chunk.resourceName].y + avatarImage.rectHeight / 2.5;
-          console.log("x: " + posX + " - y: " + posY );
-          tempCtx.drawImage(chunk.resource, posX, posY);
-          off += 20;
+          if (this.offsets[chunk.lib] != null && this.offsets[chunk.lib][chunk.resourceName] != null) {
+            console.log(chunk);
+            var posX = -this.offsets[chunk.lib][chunk.resourceName].x;
+            var posY = (avatarImage.rectHeight / 2) - this.offsets[chunk.lib][chunk.resourceName].y + avatarImage.rectHeight / 2.5;
+            console.log("x: " + posX + " - y: " + posY );
+            tempCtx.drawImage(chunk.resource, posX, posY);
+            off += 20;
+          }
         }
 
         canvasCallback(tempCanvas);
@@ -427,7 +439,7 @@
 
   var Game = {};
   window.onload = function () {
-    Game.avatar = new AvatarImage("hd-190-10.lg-3023-1408.ch-215-91.hr-893-45", 2, 2, "std", "std", 0, false, "n");
+    Game.avatar = new AvatarImage("hr-828-1407.sh-3089-110.ha-1013-110.ch-3323-110-92.lg-3058-82.hd-180-10", 2, 2, "std", "std", 0, false, "n");
     Game.avatarImager = new AvatarImager();
 
     const canvas = document.querySelector('canvas');
