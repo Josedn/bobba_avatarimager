@@ -419,7 +419,7 @@ class AvatarImage
 				}
 				else
 				{
-					$this->debug .= $drawPartRect['lib'].":".$drawPartRect['name']."(".$drawPartRect['width']."x".$drawPartRect['height'].":".$drawPartRect['offset']['x'].",".$drawPartRect['offset']['y'].")/";
+					$this->debug .= $drawPartRect['lib'].":".$drawPartRect['name']."(".$drawPartRect['width']."x".$drawPartRect['height'].":".$drawPartRect['offset']['x'].",".$drawPartRect['offset']['y'].",". ($drawPart['colorable'] ? "color" : "noColor") . ")/";
 				}
 
 				$drawPartRectTransparentColor = imageColorTransparent($drawPartRect['resource']);

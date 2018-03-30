@@ -22,26 +22,27 @@
   <script>
   AvatarImager.LOCAL_RESOURCES_URL = "./resource/";
 
-  function AvatarSprite(lib, resourceName, isFlip) {
+  function AvatarSprite(lib, resourceName, isFlip, color) {
     this.lib = lib;
     this.resourceName = resourceName;
     this.isFlip = isFlip;
+    this.color = color;
     this.ready = false;
   };
 
   AvatarSprite.prototype.downloadAsync = function() {
     var img = new Image();
     var d = new Promise(function (resolve, reject) {
-        img.onload = function () {
-            this.resource = img;
-            console.log("downloaded " + this.lib + " -> " + this.resourceName);
-            resolve(img);
-        }.bind(this);
+      img.onload = function () {
+        this.resource = img;
+        //console.log("downloaded " + this.lib + " -> " + this.resourceName);
+        resolve(img);
+      }.bind(this);
 
-        img.onerror = function () {
-          console.log("NOT DOWNLOADED "  + this.lib + " -> " + this.resourceName);
-            reject('Could not load image: ' + src);
-        };
+      img.onerror = function () {
+        console.log("NOT DOWNLOADED "  + this.lib + " -> " + this.resourceName);
+        reject('Could not load image: ' + src);
+      };
     }.bind(this));
 
     img.src = AvatarImager.LOCAL_RESOURCES_URL + this.lib + "/" + this.lib + "_" + this.resourceName + ".png";
@@ -234,7 +235,7 @@
     return activeParts;
     //var partSetData = this.partsets['partSet'];
     //activeParts.forEach(type => {
-      //ret.push(type);
+    //ret.push(type);
     //});
     //return ret;
   };
@@ -254,7 +255,7 @@
     return resourceName;
   };
 
-  AvatarImager.prototype.getPartResource = function(uniqueName, action, type, isSmall, partId, direction) {
+  AvatarImager.prototype.getPartResource = function(uniqueName, action, type, isSmall, partId, direction, color) {
     var frame = this.getFrameNumber(type, action, null);
     var isFlip = false;
     var resDirection = direction;
@@ -262,26 +263,26 @@
     //file_exists? ======= true
 
     //r63 self alias
-		if(type == "hd" && isSmall) partId = 1;
-		if(type == "ey" && action == "std" && partId == 1 && direction == 3) action = "sml";
-		if(type == "fa" && action == "std" && partId == 2 && (direction == 2 || direction == 4)) resDirection = 1;
-		if(type == "he" && action == "std" && partId == 1) {
-			if(direction == 2) {
-				resDirection = 0;
-			}
-			if(direction >= 4 && direction <= 6) {
-				return false;
-			}
-		}
-		if(type == "he" && action == "std" && partId == 8) resDirection = direction % 2 == 0 ? 1 : resDirection;
-		if(type == "he" && action == "std" && (partId == 2131 || partId == 2132) && (direction >= 2 && direction <= 6)) resDirection = 1;
-		if(type == "ha" && action == "std" && partId == 2518) resDirection = direction % 2 == 0 ? 2 : 1;
-		if(type == "ha" && action == "std" && partId == 2519) resDirection = direction % 2 == 0 ? 2 : 3;
-		if(type == "ha" && action == "std" && partId == 2588) resDirection = 7;
-		if(type == "ha" && action == "std" && partId == 2589) resDirection = 3;
+    if(type == "hd" && isSmall) partId = 1;
+    if(type == "ey" && action == "std" && partId == 1 && direction == 3) action = "sml";
+    if(type == "fa" && action == "std" && partId == 2 && (direction == 2 || direction == 4)) resDirection = 1;
+    if(type == "he" && action == "std" && partId == 1) {
+      if(direction == 2) {
+        resDirection = 0;
+      }
+      if(direction >= 4 && direction <= 6) {
+        return false;
+      }
+    }
+    if(type == "he" && action == "std" && partId == 8) resDirection = direction % 2 == 0 ? 1 : resDirection;
+    if(type == "he" && action == "std" && (partId == 2131 || partId == 2132) && (direction >= 2 && direction <= 6)) resDirection = 1;
+    if(type == "ha" && action == "std" && partId == 2518) resDirection = direction % 2 == 0 ? 2 : 1;
+    if(type == "ha" && action == "std" && partId == 2519) resDirection = direction % 2 == 0 ? 2 : 3;
+    if(type == "ha" && action == "std" && partId == 2588) resDirection = 7;
+    if(type == "ha" && action == "std" && partId == 2589) resDirection = 3;
 
     var resourceName = this.buildResourceName(action, type, isSmall, partId, resDirection, frame, uniqueName);
-    var resource = new AvatarSprite(uniqueName, resourceName, false);
+    var resource = new AvatarSprite(uniqueName, resourceName, false, color);
     return resource;
   };
 
@@ -294,8 +295,10 @@
   };
 
   AvatarImager.prototype.getColorByPaletteId = function(paletteId, colorId) {
-    var hexColor = this.figuredata['palette'][paletteId][colorId]['color'];
-    return (hexColor != null ? hexColor : "ffffff");
+    if (this.figuredata['palette'][paletteId] != null && this.figuredata['palette'][paletteId][colorId] != null && this.figuredata['palette'][paletteId][colorId]['color'] != null) {
+      return this.figuredata['palette'][paletteId][colorId]['color'];
+    }
+    return null;
   };
 
   AvatarImager.prototype.getPartColor = function(figure) {
@@ -376,8 +379,9 @@
             if (this.offsets[uniqueName] == null) {
               offsetsPromises.push(this.downloadOffsetAsync(uniqueName));
             }
-
-            var drawPartChunk = this.getPartResource(uniqueName, avatarImage.action, type, avatarImage.isSmall, drawablePart["id"], avatarImage.direction);
+            //TODO: check eyes
+            var color = drawablePart.colorable && type != "ey" ? drawablePart.color : null;
+            var drawPartChunk = this.getPartResource(uniqueName, avatarImage.action, type, avatarImage.isSmall, drawablePart["id"], avatarImage.direction, color);
             chunks.push(drawPartChunk);
             drawCount++;
           }
@@ -386,12 +390,12 @@
     });
 
     Promise.all(offsetsPromises).then(function() {
-      console.log("offsets ok!");
+      //console.log("offsets ok!");
 
       var chunksPromises = [];
 
       for (chunk of chunks) {
-        console.log(chunk);
+        //console.log(chunk);
         if (this.offsets[chunk.lib] != null && this.offsets[chunk.lib][chunk.resourceName] != null) {
           if (this.offsets[chunk.lib][chunk.resourceName].flipped) {
 
@@ -399,7 +403,7 @@
             chunksPromises.push(chunk.downloadAsync());
           }
         } else {
-          console.log("wrong chunk??1");
+          //console.log("wrong chunk??1");
         }
       }
 
@@ -414,8 +418,13 @@
             if (chunk.resource != null) {
               var posX = -this.offsets[chunk.lib][chunk.resourceName].x;
               var posY = (avatarImage.rectHeight / 2) - this.offsets[chunk.lib][chunk.resourceName].y + avatarImage.rectHeight / 2.5;
-              console.log("x: " + posX + " - y: " + posY );
-              tempCtx.drawImage(chunk.resource, posX, posY);
+              console.log("x: " + posX + " - y: " + posY + " - color: " + chunk.color );
+
+              var img = chunk.resource;
+              if (chunk.color != null) {
+                img = this.tintSprite(img, chunk.color);
+              }
+              tempCtx.drawImage(img, posX, posY);
               off += 20;
             } else {
               console.log("Missing resource");
@@ -427,6 +436,47 @@
       }.bind(this));
     }.bind(this));
   };
+
+  AvatarImager.prototype.hex2rgb = function(hex) {
+    var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? {
+      r: parseInt(result[1], 16),
+      g: parseInt(result[2], 16),
+      b: parseInt(result[3], 16)
+    } : null;
+  }
+
+  AvatarImager.prototype.tintSprite = function(img, color) {
+    var element = document.createElement('canvas');
+    var c = element.getContext("2d");
+
+    var rgb = this.hex2rgb(color);
+
+    var width = img.width;
+    var height = img.height;
+
+    element.width = width;
+    element.height = height;
+
+    c.drawImage(img, 0, 0);
+    var imageData = c.getImageData(0, 0, width, height);
+    for (var y = 0; y < height; y++) {
+      var inpos = y * width * 4;
+      for (var x = 0; x < width; x++) {
+        var pr = imageData.data[inpos++];
+        var pg = imageData.data[inpos++];
+        var pb = imageData.data[inpos++];
+        var pa = imageData.data[inpos++];
+        if (pa != 0) {
+          imageData.data[inpos - 2] = Math.round(rgb.b * imageData.data[inpos - 2] / 255); //B
+          imageData.data[inpos - 3] = Math.round(rgb.g * imageData.data[inpos - 3] / 255); //G
+          imageData.data[inpos - 4] = Math.round(rgb.r * imageData.data[inpos - 4] / 255); //R
+        }
+      }
+    }
+    c.putImageData(imageData, 0, 0);
+    return element;
+  }
 
   AvatarImager.prototype.downloadJsonAsync = function(key, url) {
     return new Promise(function (resolve, reject) {
@@ -476,7 +526,7 @@
 
   var Game = {};
   window.onload = function () {
-    Game.avatar = new AvatarImage("sh-725-68.he-3258-1410-92.hr-3012-45.ch-665-110.lg-3006-110-110.hd-600-28", 3, 3, "std", "std", 0, false, "n");
+    Game.avatar = new AvatarImage("hr-3162-1407.sh-300-110.hd-190-1390.lg-275-110.ch-215-85.ha-3140-110", 2, 2, "std", "std", 0, false, "n");
     Game.avatarImager = new AvatarImager();
 
     const canvas = document.querySelector('canvas');
