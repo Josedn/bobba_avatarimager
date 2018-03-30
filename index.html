@@ -39,6 +39,7 @@
         }.bind(this);
 
         img.onerror = function () {
+          console.log("NOT DOWNLOADED "  + this.lib + " -> " + this.resourceName);
             reject('Could not load image: ' + src);
         };
     }.bind(this));
@@ -239,9 +240,6 @@
   };
 
   AvatarImager.prototype.buildResourceName = function(action, type, isSmall, partId, direction, frame, uniqueName) {
-    //var resourceName = uniqueName + "/" + uniqueName;
-    //resourceName += "_";
-
     var resourceName = isSmall ? "sh" : "h";
     resourceName += "_";
     resourceName += action;
@@ -260,10 +258,29 @@
     var frame = this.getFrameNumber(type, action, null);
     var isFlip = false;
     var resDirection = direction;
-    var resourceName = this.buildResourceName(action, type, isSmall, partId, resDirection, frame, uniqueName);
 
     //file_exists? ======= true
 
+    //r63 self alias
+		if(type == "hd" && isSmall) partId = 1;
+		if(type == "ey" && action == "std" && partId == 1 && direction == 3) action = "sml";
+		if(type == "fa" && action == "std" && partId == 2 && (direction == 2 || direction == 4)) resDirection = 1;
+		if(type == "he" && action == "std" && partId == 1) {
+			if(direction == 2) {
+				resDirection = 0;
+			}
+			if(direction >= 4 && direction <= 6) {
+				return false;
+			}
+		}
+		if(type == "he" && action == "std" && partId == 8) resDirection = direction % 2 == 0 ? 1 : resDirection;
+		if(type == "he" && action == "std" && (partId == 2131 || partId == 2132) && (direction >= 2 && direction <= 6)) resDirection = 1;
+		if(type == "ha" && action == "std" && partId == 2518) resDirection = direction % 2 == 0 ? 2 : 1;
+		if(type == "ha" && action == "std" && partId == 2519) resDirection = direction % 2 == 0 ? 2 : 3;
+		if(type == "ha" && action == "std" && partId == 2588) resDirection = 7;
+		if(type == "ha" && action == "std" && partId == 2589) resDirection = 3;
+
+    var resourceName = this.buildResourceName(action, type, isSmall, partId, resDirection, frame, uniqueName);
     var resource = new AvatarSprite(uniqueName, resourceName, false);
     return resource;
   };
@@ -286,7 +303,20 @@
     var partSet = this.figuredata['settype'][figure.type];
     if (partSet['set'][figure.id]['part'] != null) {
       partSet['set'][figure.id]['part'].forEach(part => {
-        parts[part.type] = {"index" : part.index, "id" : part.id, "colorable" : part.colorable, "color": this.getColorByPaletteId(partSet.paletteid, figure.colors[part.colorindex - 1]) };
+        console.log(figure);
+        console.log(part);
+        console.log("paletteid: " + partSet.paletteid + " colors: " + figure.colors[part.colorindex - 1]);
+        var element = {"index" : part.index, "id" : part.id, "colorable" : part.colorable };
+        if (part.colorable) {
+          element.color = this.getColorByPaletteId(partSet.paletteid, figure.colors[part.colorindex - 1]);
+        }
+        if (parts[part.type] == null) {
+          parts[part.type] = [element];
+        } else {
+          parts[part.type].push(element);
+        }
+
+
       });
     }
     return parts;
@@ -327,7 +357,7 @@
     });
 
     if (avatarImage.handItem !== false) {
-      setParts["ri"] = {"index" : 0, "id" : avatarImage.handItem};
+      setParts["ri"] = [ {"index" : 0, "id" : avatarImage.handItem} ];
     }
 
     var drawCount = 0;
@@ -338,17 +368,19 @@
     drawParts.forEach(type => {
       var drawableParts = setParts[type];
       if (drawableParts != null) {
-        var uniqueName = this.getPartUniqueName(type, drawableParts["id"]);
-        if (uniqueName != null) {
-          console.log(type + " -> " + drawableParts["id"] + " -> " + uniqueName);
+        for (drawablePart of drawableParts) {
+          var uniqueName = this.getPartUniqueName(type, drawablePart["id"]);
+          if (uniqueName != null) {
+            console.log(type + " -> " + drawablePart["id"] + " -> " + uniqueName);
 
-          if (this.offsets[uniqueName] == null) {
-            offsetsPromises.push(this.downloadOffsetAsync(uniqueName));
+            if (this.offsets[uniqueName] == null) {
+              offsetsPromises.push(this.downloadOffsetAsync(uniqueName));
+            }
+
+            var drawPartChunk = this.getPartResource(uniqueName, avatarImage.action, type, avatarImage.isSmall, drawablePart["id"], avatarImage.direction);
+            chunks.push(drawPartChunk);
+            drawCount++;
           }
-
-          var drawPartChunk = this.getPartResource(uniqueName, avatarImage.action, type, avatarImage.isSmall, drawableParts["id"], avatarImage.direction);
-          chunks.push(drawPartChunk);
-          drawCount++;
         }
       }
     });
@@ -367,22 +399,27 @@
             chunksPromises.push(chunk.downloadAsync());
           }
         } else {
-
+          console.log("wrong chunk??1");
         }
       }
 
-      Promise.all(chunksPromises).then(function () {
+      Promise.all(chunksPromises).catch(function(a) {
+      }).then(function () {
         console.log("drawing...");
 
         var off= 0;
         for (chunk of chunks) {
           if (this.offsets[chunk.lib] != null && this.offsets[chunk.lib][chunk.resourceName] != null) {
             console.log(chunk);
-            var posX = -this.offsets[chunk.lib][chunk.resourceName].x;
-            var posY = (avatarImage.rectHeight / 2) - this.offsets[chunk.lib][chunk.resourceName].y + avatarImage.rectHeight / 2.5;
-            console.log("x: " + posX + " - y: " + posY );
-            tempCtx.drawImage(chunk.resource, posX, posY);
-            off += 20;
+            if (chunk.resource != null) {
+              var posX = -this.offsets[chunk.lib][chunk.resourceName].x;
+              var posY = (avatarImage.rectHeight / 2) - this.offsets[chunk.lib][chunk.resourceName].y + avatarImage.rectHeight / 2.5;
+              console.log("x: " + posX + " - y: " + posY );
+              tempCtx.drawImage(chunk.resource, posX, posY);
+              off += 20;
+            } else {
+              console.log("Missing resource");
+            }
           }
         }
 
@@ -439,7 +476,7 @@
 
   var Game = {};
   window.onload = function () {
-    Game.avatar = new AvatarImage("hr-828-1407.sh-3089-110.ha-1013-110.ch-3323-110-92.lg-3058-82.hd-180-10", 2, 2, "std", "std", 0, false, "n");
+    Game.avatar = new AvatarImage("sh-725-68.he-3258-1410-92.hr-3012-45.ch-665-110.lg-3006-110-110.hd-600-28", 3, 3, "std", "std", 0, false, "n");
     Game.avatarImager = new AvatarImager();
 
     const canvas = document.querySelector('canvas');

@@ -660,9 +660,12 @@ function ExtractSWF($filename)
 		imagepng($png);
 		$image_data = ob_get_contents();
 		ob_end_clean();
-		file_put_contents(OUTPUT_DIRECTORY.$swfID.'/'.$name.'.png', $image_data);
-
-		$assets[] = $name;
+		if (strlen($image_data) > 0) {
+			file_put_contents(OUTPUT_DIRECTORY.$swfID.'/'.$name.'.png', $image_data);
+			$assets[] = $name;
+		} else {
+			consoleLog($name . " null data");
+		}
 
 		if(strpos($name, 'hh_human_item_h_') === 0) pushItemSet($name);
 
