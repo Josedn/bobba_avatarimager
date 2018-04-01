@@ -465,6 +465,7 @@
         //console.log(chunk);
 
         if (this.offsets[chunk.lib] != null && this.offsets[chunk.lib][chunk.getResourceName()] != null && !this.offsets[chunk.lib][chunk.getResourceName()].flipped) {
+          //console.log("Found sprite: " + chunk.getResourceName());
           chunksPromises.push(chunk.downloadAsync());
         } else {
           let flippedType = this.partsets.partSet[chunk.type]['flipped-set-type'];
@@ -495,7 +496,7 @@
             chunk.resType = chunk.type;
           }
           if (this.offsets[chunk.lib] != null && this.offsets[chunk.lib][chunk.getResourceName()] != null && !this.offsets[chunk.lib][chunk.getResourceName()].flipped) {
-            //console.log("Found flipped sprite");
+            //console.log("Found sprite: " + chunk.getResourceName());
             chunksPromises.push(chunk.downloadAsync());
           } else {
             //console.log("Not found... " + chunk.getResourceName());
@@ -635,7 +636,8 @@
       this.downloadJsonAsync("figuremap", AvatarImager.LOCAL_RESOURCES_URL + "map.json"),
       this.downloadJsonAsync("figuredata", AvatarImager.LOCAL_RESOURCES_URL + "figuredata.json"),
       this.downloadJsonAsync("partsets", AvatarImager.LOCAL_RESOURCES_URL + "partsets.json"),
-      this.downloadJsonAsync("draworder", AvatarImager.LOCAL_RESOURCES_URL + "draworder.json")
+      this.downloadJsonAsync("draworder", AvatarImager.LOCAL_RESOURCES_URL + "draworder.json"),
+      this.downloadJsonAsync("animation", AvatarImager.LOCAL_RESOURCES_URL + "animation.json")
     ];
   };
 
@@ -652,17 +654,26 @@
     Game.avatarImager.initialize(function() {
       console.log("Ready to draw!");
 
-      const action = ["wlk","wav"];
-      const gesture = "sml";
+      const action = ["wav"];
+      const gesture = "std";
+      const frame = 0;
+      const isHeadOnly = false;
+      const size = "n";
 
-      /*Game.testAvatar = new AvatarImage("hd-180-1.ch-255-66.lg-280-110.sh-305-62.ha-1012-110.hr-828-61", 2, 2, action, gesture, 0, false, "n");
+      Game.testAvatar = new AvatarImage("hd-190-10.lg-3023-1408.ch-215-91.hr-893-45", 2, 2, action, gesture, frame, isHeadOnly, size);
       Game.avatarImager.generate(Game.testAvatar, (img) => {
         console.log("Drawing done ");
         ctx.drawImage(img, 10, 10);
-      });*/
+      });
 
-      for (let i = 0; i <= 7; i++) {
-        Game.avatars[i] = new AvatarImage("hd-190-10.lg-3023-1408.ch-215-91.hr-893-45", i, i, action, gesture, 0, false, "n");
+      Game.testAvatar = new AvatarImage("hd-190-10.lg-3023-1408.ch-215-91.hr-893-45", 2, 2, action, gesture, frame + 1, isHeadOnly, size);
+      Game.avatarImager.generate(Game.testAvatar, (img) => {
+        console.log("Drawing done ");
+        ctx.drawImage(img, 80, 10);
+      });
+
+      /*for (let i = 0; i <= 7; i++) {
+        Game.avatars[i] = new AvatarImage("hd-190-10.lg-3023-1408.ch-215-91.hr-893-45", i, i, action, gesture, frame, isHeadOnly, size);
         let av = Game.avatars[i];
         Game.avatarImager.generate(av, (img) => {
           console.log("Drawing done " + av.direction);
@@ -671,7 +682,7 @@
       }
 
       for (let i = 0; i <= 7; i++) {
-        Game.avatars[i] = new AvatarImage("sh-725-68.he-3258-1410-92.hr-3012-45.ch-665-110.lg-3006-110-110.hd-600-28", i, i, action, gesture, 0, false, "n");
+        Game.avatars[i] = new AvatarImage("sh-725-68.he-3258-1410-92.hr-3012-45.ch-665-110.lg-3006-110-110.hd-600-28", i, i, action, gesture, frame, isHeadOnly, size);
         let av = Game.avatars[i];
         Game.avatarImager.generate(av, (img) => {
           console.log("Drawing done " + av.direction);
@@ -680,7 +691,7 @@
       }
 
       for (let i = 0; i <= 7; i++) {
-        Game.avatars[i] = new AvatarImage("hr-3162-1407.sh-300-110.hd-180-1390.lg-275-110.ch-215-85.ha-3140-110", i, i, action, gesture, 0, false, "n");
+        Game.avatars[i] = new AvatarImage("hr-3162-1407.sh-300-110.hd-180-1390.lg-275-110.ch-215-85.ha-3140-110", i, i, action, gesture, frame, isHeadOnly, size);
         let av = Game.avatars[i];
         Game.avatarImager.generate(av, (img) => {
           console.log("Drawing done " + av.direction);
@@ -689,13 +700,13 @@
       }
 
       for (let i = 0; i <= 7; i++) {
-        Game.avatars[i] = new AvatarImage("lg-3058-1336.hr-3090-1407.ha-3150-110-92.hd-3091-1.ch-3059-92.sh-3016-110", i, i, action, gesture, 0, false, "n");
+        Game.avatars[i] = new AvatarImage("lg-3058-1336.hr-3090-1407.ha-3150-110-92.hd-3091-1.ch-3059-92.sh-3016-110", i, i, action, gesture, frame, isHeadOnly, size);
         let av = Game.avatars[i];
         Game.avatarImager.generate(av, (img) => {
           console.log("Drawing done " + av.direction);
           ctx.drawImage(img, 10 + 70 * av.direction, 370);
         });
-      }
+      }*/
 
     });
   };
