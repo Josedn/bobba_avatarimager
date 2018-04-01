@@ -268,6 +268,15 @@
   };
 
   AvatarImager.prototype.getFrameNumber = function(type, action, frame) {
+    const translations = {"wav": "Wave", "wlk": "Move", "spk": "Talk"};
+    if (translations[action] != null) {
+      if (this.animation[translations[action]].part[type] != null) {
+        const count = this.animation[translations[action]].part[type].length;
+        if (this.animation[translations[action]].part[type][frame % count] != null) {
+          return this.animation[translations[action]].part[type][frame % count].number;
+        }
+      }
+    }
     return 0;
   };
 
@@ -285,9 +294,9 @@
     //return ret;
   };
 
-  AvatarImager.prototype.getPartResource = function(uniqueName, action, type, isSmall, partId, direction, color) {
-    let frame = this.getFrameNumber(type, action, null);
-    let resource = new AvatarSprite(uniqueName, action, type, isSmall, partId, direction, frame, color);
+  AvatarImager.prototype.getPartResource = function(uniqueName, action, type, isSmall, partId, direction, frame, color) {
+    let partFrame = this.getFrameNumber(type, action, frame);
+    let resource = new AvatarSprite(uniqueName, action, type, isSmall, partId, direction, partFrame, color);
     return resource;
   };
 
@@ -447,9 +456,8 @@
               offsetsPromises.push(this.downloadOffsetAsync(uniqueName));
             //}
 
-            //TODO: check eyes
             let color = drawablePart.colorable ? drawablePart.color : null;
-            let drawPartChunk = this.getPartResource(uniqueName, drawAction, type, avatarImage.isSmall, drawablePart["id"], drawDirection, color);
+            let drawPartChunk = this.getPartResource(uniqueName, drawAction, type, avatarImage.isSmall, drawablePart["id"], drawDirection, avatarImage.frame, color);
             chunks.push(drawPartChunk);
           }
         }
@@ -654,8 +662,8 @@
     Game.avatarImager.initialize(function() {
       console.log("Ready to draw!");
 
-      const action = ["wav"];
-      const gesture = "std";
+      const action = ["wlk"];
+      const gesture = "spk";
       const frame = 0;
       const isHeadOnly = false;
       const size = "n";
@@ -669,7 +677,19 @@
       Game.testAvatar = new AvatarImage("hd-190-10.lg-3023-1408.ch-215-91.hr-893-45", 2, 2, action, gesture, frame + 1, isHeadOnly, size);
       Game.avatarImager.generate(Game.testAvatar, (img) => {
         console.log("Drawing done ");
-        ctx.drawImage(img, 80, 10);
+        ctx.drawImage(img, 10 + 70, 10);
+      });
+
+      Game.testAvatar = new AvatarImage("hd-190-10.lg-3023-1408.ch-215-91.hr-893-45", 2, 2, action, gesture, frame + 2, isHeadOnly, size);
+      Game.avatarImager.generate(Game.testAvatar, (img) => {
+        console.log("Drawing done ");
+        ctx.drawImage(img, 10 + 70 * 2, 10);
+      });
+
+      Game.testAvatar = new AvatarImage("hd-190-10.lg-3023-1408.ch-215-91.hr-893-45", 2, 2, action, gesture, frame + 3, isHeadOnly, size);
+      Game.avatarImager.generate(Game.testAvatar, (img) => {
+        console.log("Drawing done ");
+        ctx.drawImage(img, 10 + 70 * 3, 10);
       });
 
       /*for (let i = 0; i <= 7; i++) {
