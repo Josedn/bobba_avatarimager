@@ -115,14 +115,15 @@
     }
     this.isHeadOnly = isHeadOnly === true;
     this.figure = [];
-    figure.split('.').forEach(part => {
+
+    for (part of figure.split('.')) {
       let data = part.split('-');
       let figurePart = {"type" : data[0], "id" : data[1], "colors" : [ data[2] ]};
       if (data[3] != null) {
         figurePart.colors.push(data[3]);
       }
       this.figure.push(figurePart);
-    });
+    }
 
     this.frame = Array.isArray(frame) ? frame : [ frame ];
     this.drawAction = {"body" : "std", "wlk" : false, "sit" : false, "gesture" : false, "eye" : false, "speak" : false, "itemRight": false, "handRight" : false, "handLeft": false, "swm" : false}; //std, sit, lay, wlk, wav, sit-wav, swm
@@ -149,7 +150,7 @@
     }
 
     this.action = Array.isArray(action) ? action : [ action ];
-    this.action.forEach(value => {
+    for (value of this.action) {
       let actionParams = value.split('=');
       switch (actionParams[0]) {
         case "wlk":
@@ -211,7 +212,7 @@
         this.drawAction['body'] = actionParams[0];
         break;
       }
-    });
+    }
 
     if (this.drawAction['sit'] == "sit") {
       if (this.direction >= 2 && this.direction <= 4) {
@@ -323,8 +324,15 @@
           parts[part.type].push(element);
         }
 
-
       });
+    }
+    //r63 ?
+
+    parts.hidden = [];
+    if (Array.isArray(partSet['set'][figure.id]['hidden'])) {
+      for (partType of partSet['set'][figure.id]['hidden']) {
+        parts.hidden.push(partType);
+      }
     }
     return parts;
   };
@@ -341,7 +349,7 @@
     tempCtx.fillRect(0, 0, avatarImage.rectWidth, avatarImage.rectHeight);
 
     let activeParts = {};
-    activeParts.rect = this.getActivePartSet(this.isHeadOnly ? "head" : "figure");
+    activeParts.rect = this.getActivePartSet(avatarImage.isHeadOnly ? "head" : "figure");
     activeParts.head = this.getActivePartSet("head");
     activeParts.eye = this.getActivePartSet("eye");
     activeParts.gesture = this.getActivePartSet("gesture");
@@ -358,10 +366,16 @@
       drawParts = this.getDrawOrder("std", avatarImage.direction);
     }
 
-    let setParts = [];
-    avatarImage.figure.forEach(parSet => {
-      setParts = Object.assign(setParts, this.getPartColor(parSet));
-    });
+    let setParts = {};
+    for (partSet of avatarImage.figure) {
+      const parts = this.getPartColor(partSet);
+      for (type in parts) {
+        if (setParts[type] == null) {
+          setParts[type] = [];
+        }
+        setParts[type] = parts[type].concat(setParts[type]);
+      }
+    }
 
     if (avatarImage.handItem !== false) {
       setParts["ri"] = [ {"index" : 0, "id" : avatarImage.handItem} ];
@@ -370,7 +384,7 @@
     let chunks = [];
     let offsetsPromises = [];
 
-    drawParts.forEach(type => {
+    for (type of drawParts) {
       let drawableParts = setParts[type];
       if (drawableParts != null) {
         for (drawablePart of drawableParts) {
@@ -378,18 +392,69 @@
           if (uniqueName != null) {
             //console.log(type + " -> " + drawablePart["id"] + " -> " + uniqueName);
 
-            //if (this.offsets[uniqueName] == null || this.offsets[uniqueName] == {}) {
+            if (setParts.hidden.includes(type)) {
+              continue;
+            }
+
+            if (!activeParts.rect.includes(type)) {
+              continue;
+            }
+
+            let drawDirection = avatarImage.direction;
+            let drawAction = false;
+            if (activeParts.rect.includes(type)) {
+              drawAction = avatarImage.drawAction['body'];
+            }
+            if (activeParts.head.includes(type)) {
+              drawDirection = avatarImage.headDirection;
+            }
+            if (activeParts.speak.includes(type) && avatarImage.drawAction['speak']) {
+              drawAction = avatarImage.drawAction['speak'];
+            }
+            if (activeParts.gesture.includes(type) && avatarImage.drawAction['gesture']) {
+              drawAction = avatarImage.drawAction['gesture'];
+            }
+            if (activeParts.eye.includes(type)) {
+              drawablePart.colorable = false;
+              if (avatarImage.drawAction['eye']) {
+                drawAction = avatarImage.drawAction['eye'];
+              }
+            }
+            if (activeParts.walk.includes(type) && avatarImage.drawAction['wlk']) {
+              drawAction = avatarImage.drawAction['wlk'];
+            }
+            if (activeParts.sit.includes(type) && avatarImage.drawAction['sit']) {
+              drawAction = avatarImage.drawAction['sit'];
+            }
+            if (activeParts.handRight.includes(type) && avatarImage.drawAction['handRight']) {
+              drawAction = avatarImage.drawAction['handRight'];
+            }
+            if (activeParts.itemRight.includes(type) && avatarImage.drawAction['itemRight']) {
+              drawAction = avatarImage.drawAction['itemRight'];
+            }
+            if (activeParts.handLeft.includes(type) && avatarImage.drawAction['handLeft']) {
+              drawAction = avatarImage.drawAction['handLeft'];
+            }
+            if (activeParts.swim.includes(type) && avatarImage.drawAction['swim']) {
+              drawAction = avatarImage.drawAction['swim'];
+            }
+
+            if (!drawAction) {
+              continue;
+            }
+
+            //if (this.offsets[uniqueName] == null) {
               offsetsPromises.push(this.downloadOffsetAsync(uniqueName));
             //}
 
             //TODO: check eyes
-            let color = drawablePart.colorable && type != "ey" ? drawablePart.color : null;
-            let drawPartChunk = this.getPartResource(uniqueName, avatarImage.action, type, avatarImage.isSmall, drawablePart["id"], avatarImage.direction, color);
+            let color = drawablePart.colorable ? drawablePart.color : null;
+            let drawPartChunk = this.getPartResource(uniqueName, drawAction, type, avatarImage.isSmall, drawablePart["id"], drawDirection, color);
             chunks.push(drawPartChunk);
           }
         }
       }
-    });
+    }
 
     Promise.all(offsetsPromises).then(function() {
       //console.log("offsets ok!");
@@ -586,13 +651,49 @@
 
     Game.avatarImager.initialize(function() {
       console.log("Ready to draw!");
-      
+
+      const action = ["wlk","wav"];
+      const gesture = "sml";
+
+      /*Game.testAvatar = new AvatarImage("hd-180-1.ch-255-66.lg-280-110.sh-305-62.ha-1012-110.hr-828-61", 2, 2, action, gesture, 0, false, "n");
+      Game.avatarImager.generate(Game.testAvatar, (img) => {
+        console.log("Drawing done ");
+        ctx.drawImage(img, 10, 10);
+      });*/
+
       for (let i = 0; i <= 7; i++) {
-        Game.avatars[i] = new AvatarImage("hd-190-10.lg-3023-1408.ch-215-91.hr-893-45", i, i, "std", "std", 0, false, "n");
+        Game.avatars[i] = new AvatarImage("hd-190-10.lg-3023-1408.ch-215-91.hr-893-45", i, i, action, gesture, 0, false, "n");
         let av = Game.avatars[i];
         Game.avatarImager.generate(av, (img) => {
           console.log("Drawing done " + av.direction);
           ctx.drawImage(img, 10 + 70 * av.direction, 10);
+        });
+      }
+
+      for (let i = 0; i <= 7; i++) {
+        Game.avatars[i] = new AvatarImage("sh-725-68.he-3258-1410-92.hr-3012-45.ch-665-110.lg-3006-110-110.hd-600-28", i, i, action, gesture, 0, false, "n");
+        let av = Game.avatars[i];
+        Game.avatarImager.generate(av, (img) => {
+          console.log("Drawing done " + av.direction);
+          ctx.drawImage(img, 10 + 70 * av.direction, 130);
+        });
+      }
+
+      for (let i = 0; i <= 7; i++) {
+        Game.avatars[i] = new AvatarImage("hr-3162-1407.sh-300-110.hd-180-1390.lg-275-110.ch-215-85.ha-3140-110", i, i, action, gesture, 0, false, "n");
+        let av = Game.avatars[i];
+        Game.avatarImager.generate(av, (img) => {
+          console.log("Drawing done " + av.direction);
+          ctx.drawImage(img, 10 + 70 * av.direction, 250);
+        });
+      }
+
+      for (let i = 0; i <= 7; i++) {
+        Game.avatars[i] = new AvatarImage("lg-3058-1336.hr-3090-1407.ha-3150-110-92.hd-3091-1.ch-3059-92.sh-3016-110", i, i, action, gesture, 0, false, "n");
+        let av = Game.avatars[i];
+        Game.avatarImager.generate(av, (img) => {
+          console.log("Drawing done " + av.direction);
+          ctx.drawImage(img, 10 + 70 * av.direction, 370);
         });
       }
 

@@ -356,7 +356,7 @@ class AvatarImage
 				}
 				if($activeParts['speak'][$type]['active'] && $this->drawAction['speak'])
 				{
-					$drawAction		= $this->drawAction[speak];
+					$drawAction		= $this->drawAction['speak'];
 				}
 				if($activeParts['gesture'][$type]['active'] && $this->drawAction['gesture'])
 				{
